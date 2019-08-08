@@ -243,8 +243,18 @@ def calculate_mean_edit_distance_and_loss(iterator, dropout, reuse):
 # (www.cs.toronto.edu/~fritz/absps/momentum.pdf) was used,
 # we will use the Adam method for optimization (http://arxiv.org/abs/1412.6980),
 # because, generally, it requires less fine-tuning.
-def create_optimizer():
-    optimizer = tfv1.train.AdamOptimizer(learning_rate=FLAGS.learning_rate,
+def create_optimizer(global_step, train_number_examples):
+    steps_per_epoch = train_number_examples / FLAGS.train_batch_size
+    learning_rate = FLAGS.learning_rate
+    if FLAGS.halving != 0:
+        decay = 0.5 ** (1.0 / FLAGS.halving)
+        learning_rate = tfv1.train.exponential_decay(FLAGS.learning_rate,
+                                                     global_step,
+                                                     steps_per_epoch,
+                                                     decay,
+                                                     staircase=FLAGS.halving_staircase)
+
+    optimizer = tfv1.train.AdamOptimizer(learning_rate=learning_rate,
                                          beta1=FLAGS.beta1,
                                          beta2=FLAGS.beta2,
                                          epsilon=FLAGS.epsilon)
@@ -434,16 +444,17 @@ def train():
         rate: 0. for rate in dropout_rates
     }
 
+    # global_step is automagically incremented by the optimizer
+    global_step = tfv1.train.get_or_create_global_step()
+
     # Building the graph
-    optimizer = create_optimizer()
+    optimizer = create_optimizer(global_step, train_number_examples=train_set.length)
     gradients, loss = get_tower_results(iterator, optimizer, dropout_rates)
 
     # Average tower gradients across GPUs
     avg_tower_gradients = average_gradients(gradients)
     log_grads_and_vars(avg_tower_gradients)
 
-    # global_step is automagically incremented by the optimizer
-    global_step = tfv1.train.get_or_create_global_step()
     apply_gradient_op = optimizer.apply_gradients(avg_tower_gradients, global_step=global_step)
 
     # Summaries

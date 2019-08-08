@@ -98,7 +98,7 @@ def create_dataset(csvs, batch_size, cache_path=''):
                               .cache(cache_path)
                               .window(batch_size, drop_remainder=True).flat_map(batch_fn)
                               .prefetch(num_gpus))
-
+    dataset.length = len(df)
     return dataset
 
 def secs_to_hours(secs):
