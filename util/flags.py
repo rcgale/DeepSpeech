@@ -42,7 +42,7 @@ def create_flags():
     f.DEFINE_float('beta2', 0.999, 'beta 2 parameter of Adam optimizer')
     f.DEFINE_float('epsilon', 1e-8, 'epsilon parameter of Adam optimizer')
     f.DEFINE_float('learning_rate', 0.001, 'learning rate of Adam optimizer')
-    f.DEFINE_float('halving', 0.0, 'number of epochs over which to halve the learning rate')
+    f.DEFINE_float('halving', 0.0, 'number of epochs over which to halve the learning rate (0 means no halving)')
     f.DEFINE_float('halving_staircase', False, 'update learning rate at each epoch rather than gradually at each batch')
 
     # Batch sizes
