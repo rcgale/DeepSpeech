@@ -244,7 +244,7 @@ def calculate_mean_edit_distance_and_loss(iterator, dropout, reuse):
 # we will use the Adam method for optimization (http://arxiv.org/abs/1412.6980),
 # because, generally, it requires less fine-tuning.
 def create_optimizer(global_step, train_number_examples):
-    steps_per_epoch = train_number_examples / FLAGS.train_batch_size
+    steps_per_epoch = train_number_examples / FLAGS.train_batch_size / len(Config.available_devices)
     learning_rate = FLAGS.learning_rate
     if FLAGS.halving != 0:
         decay = 0.5 ** (1.0 / FLAGS.halving)
