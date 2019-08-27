@@ -42,6 +42,12 @@ def create_flags():
     f.DEFINE_float('beta2', 0.999, 'beta 2 parameter of Adam optimizer')
     f.DEFINE_float('epsilon', 1e-8, 'epsilon parameter of Adam optimizer')
     f.DEFINE_float('learning_rate', 0.001, 'learning rate of Adam optimizer')
+    f.DEFINE_float('learning_rate1', -1.0, 'learning rate for layer 1 - defaults to learning_rate')
+    f.DEFINE_float('learning_rate2', -1.0, 'learning rate for layer 2 - defaults to learning_rate')
+    f.DEFINE_float('learning_rate3', -1.0, 'learning rate for layer 3 - defaults to learning_rate')
+    f.DEFINE_float('learning_rate4', -1.0, 'learning rate for layer 4 - defaults to learning_rate')
+    f.DEFINE_float('learning_rate5', -1.0, 'learning rate for layer 5 - defaults to learning_rate')
+    f.DEFINE_float('learning_rate6', -1.0, 'learning rate for layer 6 - defaults to learning_rate')
 
     # Batch sizes
 
