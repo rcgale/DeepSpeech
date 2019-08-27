@@ -247,11 +247,19 @@ def calculate_mean_edit_distance_and_loss(iterator, dropout, reuse):
 # we will use the Adam method for optimization (http://arxiv.org/abs/1412.6980),
 # because, generally, it requires less fine-tuning.
 def create_optimizer():
-    optimizer = tfv1.train.AdamOptimizer(learning_rate=FLAGS.learning_rate,
-                                         beta1=FLAGS.beta1,
-                                         beta2=FLAGS.beta2,
-                                         epsilon=FLAGS.epsilon)
-    return optimizer
+    optimizer = lambda lr: tfv1.train.AdamOptimizer(learning_rate=lr if lr >= 0 else FLAGS.learning_rate,
+                                                    beta1=FLAGS.beta1,
+                                                    beta2=FLAGS.beta2,
+                                                    epsilon=FLAGS.epsilon)
+
+    return {
+        "layer_1": optimizer(FLAGS.learning_rate1),
+        "layer_2": optimizer(FLAGS.learning_rate2),
+        "layer_3": optimizer(FLAGS.learning_rate3),
+        "cudnn_lstm/rnn/multi_rnn_cell/cell_0": optimizer(FLAGS.learning_rate4),
+        "layer_5": optimizer(FLAGS.learning_rate5),
+        "layer_6": optimizer(FLAGS.learning_rate6),
+    }
 
 
 # Towers
@@ -270,7 +278,7 @@ def create_optimizer():
 # on which all operations within the tower execute.
 # For example, all operations of 'tower 0' could execute on the first GPU `tf.device('/gpu:0')`.
 
-def get_tower_results(iterator, optimizer, dropout_rates):
+def get_tower_results(iterator, optimizers, dropout_rates):
     r'''
     With this preliminary step out of the way, we can for each GPU introduce a
     tower for which's batch we calculate and return the optimization gradients
@@ -304,7 +312,11 @@ def get_tower_results(iterator, optimizer, dropout_rates):
                     tower_avg_losses.append(avg_loss)
 
                     # Compute gradients for model parameters using tower's mini-batch
-                    gradients = optimizer.compute_gradients(avg_loss)
+                    gradients = []
+                    for var_name, optimizer in optimizers.items():
+                        var = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=var_name)
+                        gradients.append(optimizer.compute_gradients(avg_loss, var_list=[var]))
+
 
                     # Retain tower's gradients
                     tower_gradients.append(gradients)
@@ -443,16 +455,17 @@ def train():
     }
 
     # Building the graph
-    optimizer = create_optimizer()
-    gradients, loss, non_finite_files = get_tower_results(iterator, optimizer, dropout_rates)
+    optimizers = create_optimizer()
+    gradients, loss, non_finite_files = get_tower_results(iterator, optimizers, dropout_rates)
 
     # Average tower gradients across GPUs
-    avg_tower_gradients = average_gradients(gradients)
-    log_grads_and_vars(avg_tower_gradients)
+    for optimizer, layer_gradients in zip(optimizers.values(), layer_gradients):
+        avg_tower_gradients = average_gradients(layer_gradients)
+        log_grads_and_vars(avg_tower_gradients)
 
-    # global_step is automagically incremented by the optimizer
-    global_step = tfv1.train.get_or_create_global_step()
-    apply_gradient_op = optimizer.apply_gradients(avg_tower_gradients, global_step=global_step)
+        # global_step is automagically incremented by the optimizer
+        global_step = tfv1.train.get_or_create_global_step()
+        apply_gradient_op = optimizer.apply_gradients(avg_tower_gradients, global_step=global_step)
 
     # Summaries
     step_summaries_op = tfv1.summary.merge_all('step_summaries')
