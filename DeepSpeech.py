@@ -456,7 +456,8 @@ def train():
 
     # Building the graph
     optimizers = create_optimizer()
-    gradients, loss, non_finite_files = get_tower_results(iterator, optimizers, dropout_rates)
+    tower_gradients, loss, non_finite_files = get_tower_results(iterator, optimizers, dropout_rates)
+    layer_gradients = zip(*tower_gradients)
 
     # Average tower gradients across GPUs
     for optimizer, layer_gradients in zip(optimizers.values(), layer_gradients):
