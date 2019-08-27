@@ -13,6 +13,7 @@ import numpy as np
 import progressbar
 import shutil
 import tensorflow as tf
+import tensorflow.compat.v1 as tfv1
 
 from datetime import datetime
 from ds_ctcdecoder import ctc_beam_search_decoder, Scorer
@@ -78,13 +79,13 @@ def dense(name, x, units, dropout_rate=None, relu=True):
 
 
 def rnn_impl_lstmblockfusedcell(x, seq_length, previous_state, reuse):
-    # Forward direction cell:
-    fw_cell = tf.contrib.rnn.LSTMBlockFusedCell(Config.n_cell_dim, reuse=reuse)
+    with tfv1.variable_scope('cudnn_lstm/rnn/multi_rnn_cell/cell_0'):
+        fw_cell = tf.contrib.rnn.LSTMBlockFusedCell(Config.n_cell_dim, reuse=reuse)
 
-    output, output_state = fw_cell(inputs=x,
-                                   dtype=tf.float32,
-                                   sequence_length=seq_length,
-                                   initial_state=previous_state)
+        output, output_state = fw_cell(inputs=x,
+                                       dtype=tf.float32,
+                                       sequence_length=seq_length,
+                                       initial_state=previous_state)
 
     return output, output_state
 
@@ -409,11 +410,12 @@ def train():
 
     # Building the graph
     optimizers = create_optimizer()
-    gradients, loss = get_tower_results(iterator, optimizers, dropout_rates)
+    tower_gradients, loss = get_tower_results(iterator, optimizers, dropout_rates)
+    layer_gradients = zip(*tower_gradients)
 
     # Average tower gradients across GPUs
-    for optimizer, layer_gradients in zip(optimizers.values(), layer_gradients):
-        avg_tower_gradients = average_gradients(layer_gradients)
+    for optimizer, gradients in zip(optimizers.values(), layer_gradients):
+        avg_tower_gradients = average_gradients(gradients)
         log_grads_and_vars(avg_tower_gradients)
 
         # global_step is automagically incremented by the optimizer
