@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function
 
+import math
 from collections import Counter
 from functools import partial
 
@@ -16,6 +17,7 @@ from .augmentations import apply_sample_augmentations, apply_graph_augmentations
 from .audio import read_frames_from_file, vad_split, pcm_to_np, DEFAULT_FORMAT
 from .sample_collections import samples_from_sources
 from .helpers import remember_exception, MEGABYTE
+from .logging import log_debug
 
 
 def audio_to_features(audio, sample_rate, transcript=None, clock=0.0, train_phase=False, augmentations=None, sample_id=None):
@@ -117,6 +119,11 @@ def create_dataset(sources,
             clock = (epoch * num_samples + sample_index) / (epochs * num_samples) if train_phase and epochs > 0 else 0.0
             transcript = text_to_char_array(sample.transcript, Config.alphabet, context=sample.sample_id)
             transcript = to_sparse_tuple(transcript)
+            log_debug(
+                f"EPOCH {epoch} "
+                f"BATCH {math.floor(sample_index / batch_size)} "
+                f"{sample.sample_id}"
+            )
             yield sample.sample_id, sample.audio, sample.audio_format.rate, transcript, clock
 
     # Batching a dataset of 2D SparseTensors creates 3D batches, which fail
@@ -141,8 +148,11 @@ def create_dataset(sources,
                               .map(process_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE))
     if cache_path:
         dataset = dataset.cache(cache_path)
+
+    prefetch = 0 if FLAGS.disable_prefetch else len(Config.available_devices)
+
     dataset = (dataset.window(batch_size, drop_remainder=train_phase).flat_map(batch_fn)
-                      .prefetch(len(Config.available_devices)))
+                      .prefetch(prefetch))
     return dataset
 
 
